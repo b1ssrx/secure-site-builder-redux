@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
-import { login, isAuthenticated } from "@/lib/auth";
+import { loginUser } from "@/lib/supabase-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, "Username or email is required"),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -22,11 +23,24 @@ type LoginForm = z.infer<typeof loginSchema>;
 const Login = () => {
   const navigate = useNavigate();
   const [showValidation, setShowValidation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      navigate("/", { replace: true });
-    }
+    // Check if user is already authenticated
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/", { replace: true });
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && event === 'SIGNED_IN') {
+        navigate("/", { replace: true });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const {
@@ -38,16 +52,23 @@ const Login = () => {
     resolver: zodResolver(loginSchema),
   });
 
-  const identifier = watch("identifier");
+  const email = watch("email");
 
-  const onSubmit = (data: LoginForm) => {
-    const result = login(data.identifier, data.password);
-    
-    if (result.success) {
-      toast.success("Welcome back!");
-      navigate("/");
-    } else {
-      toast.error(result.error || "Login failed");
+  const onSubmit = async (data: LoginForm) => {
+    setIsLoading(true);
+    try {
+      const result = await loginUser(data.email, data.password);
+      
+      if (result.success) {
+        toast.success("Welcome back!");
+        navigate("/");
+      } else {
+        toast.error(result.error || "Login failed");
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -73,23 +94,25 @@ const Login = () => {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="identifier" className="text-foreground/90">
-                User Name/Email
+              <Label htmlFor="email" className="text-foreground/90">
+                Email
               </Label>
               <div className="relative">
                 <Input
-                  id="identifier"
-                  placeholder="Admin"
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
                   className="bg-input border-border/50 text-foreground pr-10"
-                  {...register("identifier")}
+                  {...register("email")}
                   onFocus={() => setShowValidation(true)}
+                  disabled={isLoading}
                 />
-                {showValidation && identifier && !errors.identifier && (
+                {showValidation && email && !errors.email && (
                   <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-500" />
                 )}
               </div>
-              {errors.identifier && (
-                <p className="text-sm text-destructive">{errors.identifier.message}</p>
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
 
@@ -103,6 +126,7 @@ const Login = () => {
                 placeholder="••••••••••••"
                 className="bg-input border-border/50 text-foreground"
                 {...register("password")}
+                disabled={isLoading}
               />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
@@ -123,8 +147,8 @@ const Login = () => {
               >
                 <Link to="/register">Don't Have An Account? Register</Link>
               </Button>
-              <Button type="submit" className="flex-1 glow-primary">
-                Sign In
+              <Button type="submit" className="flex-1 glow-primary" disabled={isLoading}>
+                {isLoading ? "Signing In..." : "Sign In"}
               </Button>
             </div>
           </form>

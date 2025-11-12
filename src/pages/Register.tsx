@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
-import { register as registerUser, isAuthenticated } from "@/lib/auth";
+import { registerUser } from "@/lib/supabase-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 
@@ -28,11 +29,15 @@ type RegisterForm = z.infer<typeof registerSchema>;
 const Register = () => {
   const navigate = useNavigate();
   const [showValidation, setShowValidation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      navigate("/", { replace: true });
-    }
+    // Check if user is already authenticated
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/", { replace: true });
+      }
+    });
   }, [navigate]);
 
   const {
@@ -46,14 +51,21 @@ const Register = () => {
 
   const username = watch("username");
 
-  const onSubmit = (data: RegisterForm) => {
-    const result = registerUser(data.email, data.password, data.username, data.fullName);
-    
-    if (result.success) {
-      toast.success("Account created successfully! Please login.");
-      navigate("/login");
-    } else {
-      toast.error(result.error || "Registration failed");
+  const onSubmit = async (data: RegisterForm) => {
+    setIsLoading(true);
+    try {
+      const result = await registerUser(data.email, data.password, data.username, data.fullName);
+      
+      if (result.success) {
+        toast.success("Account created successfully! Please login.");
+        navigate("/login");
+      } else {
+        toast.error(result.error || "Registration failed");
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,12 +95,13 @@ const Register = () => {
               <Label htmlFor="fullName" className="text-foreground/90">
                 Full Name
               </Label>
-              <Input
-                id="fullName"
-                placeholder="Sally Nurasyl"
-                className="bg-input border-border/50 text-foreground"
-                {...register("fullName")}
-              />
+                <Input
+                  id="fullName"
+                  placeholder="Sally Nurasyl"
+                  className="bg-input border-border/50 text-foreground"
+                  {...register("fullName")}
+                  disabled={isLoading}
+                />
               {errors.fullName && (
                 <p className="text-sm text-destructive">{errors.fullName.message}</p>
               )}
@@ -105,6 +118,7 @@ const Register = () => {
                   className="bg-input border-border/50 text-foreground pr-10"
                   {...register("username")}
                   onFocus={() => setShowValidation(true)}
+                  disabled={isLoading}
                 />
                 {showValidation && username && !errors.username && (
                   <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-500" />
@@ -125,6 +139,7 @@ const Register = () => {
                 placeholder="SallyNurassyl@Gmail.Com"
                 className="bg-input border-border/50 text-foreground"
                 {...register("email")}
+                disabled={isLoading}
               />
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email.message}</p>
@@ -141,6 +156,7 @@ const Register = () => {
                 placeholder="••••••••••••"
                 className="bg-input border-border/50 text-foreground"
                 {...register("password")}
+                disabled={isLoading}
               />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
@@ -157,14 +173,15 @@ const Register = () => {
                 placeholder="••••••••••••"
                 className="bg-input border-border/50 text-foreground"
                 {...register("confirmPassword")}
+                disabled={isLoading}
               />
               {errors.confirmPassword && (
                 <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
               )}
             </div>
 
-            <Button type="submit" className="w-full glow-primary">
-              Create Account
+            <Button type="submit" className="w-full glow-primary" disabled={isLoading}>
+              {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { getSession, User } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import type { UserProfile } from "@/lib/supabase-auth";
 
 interface UserProgress {
   roadmapId: string;
@@ -9,7 +10,7 @@ interface UserProgress {
 }
 
 interface UserData {
-  user: User | null;
+  user: UserProfile | null;
   selectedRoles: string[];
   progress: UserProgress[];
   totalPoints: number;
@@ -21,28 +22,75 @@ interface UserData {
 const UserContext = createContext<UserData | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [progress, setProgress] = useState<UserProgress[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [registrationDate, setRegistrationDate] = useState("");
 
   useEffect(() => {
-    const session = getSession();
-    if (session?.user) {
-      setUser(session.user);
-      // Load user data from localStorage
-      const userData = localStorage.getItem(`user_data_${session.user.id}`);
-      if (userData) {
-        const data = JSON.parse(userData);
-        setSelectedRoles(data.selectedRoles || []);
-        setProgress(data.progress || []);
-        setTotalPoints(data.totalPoints || 0);
-        setRegistrationDate(data.registrationDate || new Date().toISOString());
-      } else {
-        setRegistrationDate(new Date().toISOString());
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // Fetch user profile
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileData) {
+          const userProfile: UserProfile = {
+            id: profileData.id,
+            email: session.user.email!,
+            username: profileData.username,
+            full_name: profileData.full_name,
+          };
+          setUser(userProfile);
+          
+          // Load user data from localStorage
+          const userData = localStorage.getItem(`user_data_${profileData.id}`);
+          if (userData) {
+            const data = JSON.parse(userData);
+            setSelectedRoles(data.selectedRoles || []);
+            setProgress(data.progress || []);
+            setTotalPoints(data.totalPoints || 0);
+            setRegistrationDate(data.registrationDate || profileData.created_at || new Date().toISOString());
+          } else {
+            setRegistrationDate(profileData.created_at || new Date().toISOString());
+          }
+        }
       }
-    }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user && event === 'SIGNED_IN') {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileData) {
+          const userProfile: UserProfile = {
+            id: profileData.id,
+            email: session.user.email!,
+            username: profileData.username,
+            full_name: profileData.full_name,
+          };
+          setUser(userProfile);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setSelectedRoles([]);
+        setProgress([]);
+        setTotalPoints(0);
+        setRegistrationDate("");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

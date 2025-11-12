@@ -6,17 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useUser } from "@/contexts/UserContext";
 import { useNavigate } from "react-router-dom";
-import { logout } from "@/lib/auth";
+import { logoutUser } from "@/lib/supabase-auth";
 import { Calendar, Mail, User as UserIcon, Trophy, Target, LogOut, Edit } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const Profile = () => {
   const { user, selectedRoles, progress, totalPoints, registrationDate } = useUser();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      toast.error("Failed to logout");
+    }
   };
 
   if (!user) {
@@ -56,7 +62,7 @@ const Profile = () => {
               
               <div className="flex-1 space-y-3">
                 <div>
-                  <h1 className="text-3xl font-bold mb-1">{user.fullName}</h1>
+                  <h1 className="text-3xl font-bold mb-1">{user.full_name}</h1>
                   <p className="text-muted-foreground">@{user.username}</p>
                 </div>
                 

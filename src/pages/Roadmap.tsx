@@ -8,13 +8,12 @@ import { Progress } from "@/components/ui/progress";
 import { roadmaps } from "@/data/roadmaps";
 import { RoadmapTree } from "@/components/RoadmapTree";
 import { useUser } from "@/contexts/UserContext";
-import { isAuthenticated } from "@/lib/auth";
 import { Target } from "lucide-react";
 
 const Roadmap = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState(roadmaps[0].id);
-  const authenticated = isAuthenticated();
-  const { progress } = authenticated ? useUser() : { progress: [] };
+  const { user, progress } = useUser();
+  const authenticated = !!user;
 
   const currentRoadmap = roadmaps.find(r => r.id === selectedRoadmap) || roadmaps[0];
   const roadmapProgress = progress.find(p => p.roadmapId === selectedRoadmap);

@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown, CheckCircle2 } from "lucide-react";
 import { RoadmapTopic } from "@/data/roadmaps";
 import { useUser } from "@/contexts/UserContext";
-import { isAuthenticated } from "@/lib/auth";
 
 interface RoadmapTreeProps {
   topic: RoadmapTopic;
@@ -15,8 +14,8 @@ interface RoadmapTreeProps {
 
 export const RoadmapTree = ({ topic, roadmapId, level = 0 }: RoadmapTreeProps) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
-  const authenticated = isAuthenticated();
-  const { progress, updateProgress } = authenticated ? useUser() : { progress: [], updateProgress: () => {} };
+  const { user, progress, updateProgress } = useUser();
+  const authenticated = !!user;
 
   const roadmapProgress = progress.find(p => p.roadmapId === roadmapId);
   const isCompleted = roadmapProgress?.completedTopics.includes(topic.id) || false;

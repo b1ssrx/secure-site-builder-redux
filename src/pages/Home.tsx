@@ -7,11 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { BookOpen, CheckCircle2, FileText, Trophy, Sparkles, Plus } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
-import { isAuthenticated } from "@/lib/auth";
 
 const Home = () => {
-  const authenticated = isAuthenticated();
-  const { selectedRoles, toggleRole } = authenticated ? useUser() : { selectedRoles: [], toggleRole: () => {} };
+  const { user, selectedRoles, toggleRole } = useUser();
+  const authenticated = !!user;
   
   const roles = [
     "Frontend", "Backend", "Full Stack", "DevOps", "Data Analyst",

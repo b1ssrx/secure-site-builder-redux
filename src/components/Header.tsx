@@ -1,29 +1,15 @@
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { logoutUser } from "@/lib/supabase-auth";
 import { LogOut, User } from "lucide-react";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useUser } from "@/contexts/UserContext";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const [authenticated, setAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthenticated(!!session);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user } = useUser();
+  const authenticated = !!user;
 
   const handleLogout = async () => {
     try {

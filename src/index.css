@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 265 85% 8%;
+    --foreground: 280 10% 95%;
+
+    --card: 265 75% 12%;
+    --card-foreground: 280 10% 95%;
+
+    --popover: 265 75% 12%;
+    --popover-foreground: 280 10% 95%;
+
+    --primary: 320 85% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 265 60% 20%;
+    --secondary-foreground: 280 10% 95%;
+
+    --muted: 265 50% 15%;
+    --muted-foreground: 280 10% 70%;
+
+    --accent: 190 95% 50%;
+    --accent-foreground: 265 85% 8%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 280 40% 25%;
+    --input: 265 50% 15%;
+    --ring: 320 85% 60%;
+
+    --radius: 0.5rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(320 85% 60%), hsl(280 85% 65%));
+    --gradient-secondary: linear-gradient(180deg, hsl(265 85% 8%), hsl(265 75% 12%));
+    --glow-primary: 0 0 30px hsl(320 85% 60% / 0.4);
+    --glow-accent: 0 0 20px hsl(190 95% 50% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-image: 
+      radial-gradient(at 20% 30%, hsl(265 85% 12% / 0.5) 0px, transparent 50%),
+      radial-gradient(at 80% 70%, hsl(280 70% 15% / 0.4) 0px, transparent 50%);
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .glow-primary {
+    box-shadow: var(--glow-primary);
+  }
+  
+  .glow-accent {
+    box-shadow: var(--glow-accent);
+  }
+}

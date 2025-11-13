@@ -37,6 +37,32 @@ export const registerUser = async (
       return { success: false, error: "Registration failed" };
     }
 
+    // Ensure profile exists or create it
+    try {
+      const { error: profileUpsertError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: authData.user.id,
+            username,
+            full_name: fullName,
+          },
+          { onConflict: "id" }
+        );
+
+      if (profileUpsertError) {
+        const msg = profileUpsertError.message?.toLowerCase() || "";
+        if (msg.includes("duplicate key") || msg.includes("unique")) {
+          return { success: false, error: "Username is already taken. Please choose another." };
+        }
+        console.error("Profile upsert error during registration:", profileUpsertError);
+        // Non-fatal, continue
+      }
+    } catch (e) {
+      console.error("Unexpected error upserting profile during registration:", e);
+      // Non-fatal, continue
+    }
+
     return { success: true };
   } catch (error) {
     console.error("Registration error:", error);
@@ -62,23 +88,48 @@ export const loginUser = async (
       return { success: false, error: "Login failed" };
     }
 
-    // Fetch user profile
-    const { data: profileData, error: profileError } = await supabase
+    // Fetch or create user profile
+    let { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", authData.user.id)
       .single();
 
-    if (profileError) {
-      console.error("Profile fetch error:", profileError);
-      return { success: false, error: "Failed to fetch user profile" };
+    if (profileError || !profileData) {
+      console.warn("Profile missing, attempting to create...", profileError);
+      const meta: any = authData.user.user_metadata || {};
+      const fallbackUsername =
+        (meta.username ||
+          authData.user.email?.split("@")[0] ||
+          `user_${authData.user.id.slice(0, 8)}`).toLowerCase();
+      const fallbackFullName = meta.full_name || meta.name || fallbackUsername;
+
+      await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: authData.user.id,
+            username: fallbackUsername,
+            full_name: fallbackFullName,
+          },
+          { onConflict: "id" }
+        );
+
+      // Try fetching again (don't fail if still missing)
+      const retry = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authData.user.id)
+        .single();
+
+      profileData = retry.data ?? null;
     }
 
     const userProfile: UserProfile = {
-      id: profileData.id,
+      id: authData.user.id,
       email: authData.user.email!,
-      username: profileData.username,
-      full_name: profileData.full_name,
+      username: profileData?.username ?? (authData.user.user_metadata?.username || authData.user.email?.split("@")[0] || "user"),
+      full_name: profileData?.full_name ?? (authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || authData.user.email || "User"),
     };
 
     return { success: true, user: userProfile };
@@ -100,21 +151,55 @@ export const getCurrentUser = async (): Promise<UserProfile | null> => {
       return null;
     }
 
-    const { data: profileData, error: profileError } = await supabase
+    let { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", session.user.id)
       .single();
 
     if (profileError || !profileData) {
-      return null;
+      // Attempt to create a minimal profile from metadata
+      const meta: any = session.user.user_metadata || {};
+      const fallbackUsername =
+        (meta.username ||
+          session.user.email?.split("@")[0] ||
+          `user_${session.user.id.slice(0, 8)}`).toLowerCase();
+      const fallbackFullName = meta.full_name || meta.name || fallbackUsername;
+
+      await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: session.user.id,
+            username: fallbackUsername,
+            full_name: fallbackFullName,
+          },
+          { onConflict: "id" }
+        );
+
+      const retry = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      profileData = retry.data ?? null;
     }
 
     return {
-      id: profileData.id,
+      id: session.user.id,
       email: session.user.email!,
-      username: profileData.username,
-      full_name: profileData.full_name,
+      username:
+        profileData?.username ??
+        (session.user.user_metadata?.username ||
+          session.user.email?.split("@")[0] ||
+          "user"),
+      full_name:
+        profileData?.full_name ??
+        (session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.email ||
+          "User"),
     };
   } catch (error) {
     console.error("Get current user error:", error);

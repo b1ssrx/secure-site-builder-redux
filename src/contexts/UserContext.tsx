@@ -80,6 +80,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             full_name: profileData.full_name,
           };
           setUser(userProfile);
+          
+          // Load user data from localStorage on sign in
+          const userData = localStorage.getItem(`user_data_${profileData.id}`);
+          if (userData) {
+            const data = JSON.parse(userData);
+            setSelectedRoles(data.selectedRoles || []);
+            setProgress(data.progress || []);
+            setTotalPoints(data.totalPoints || 0);
+            setRegistrationDate(data.registrationDate || profileData.created_at || new Date().toISOString());
+          } else {
+            setRegistrationDate(profileData.created_at || new Date().toISOString());
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);

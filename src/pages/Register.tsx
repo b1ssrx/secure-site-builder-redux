@@ -38,6 +38,15 @@ const Register = () => {
         navigate("/", { replace: true });
       }
     });
+
+    // Listen for auth changes (auto-login after registration)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        navigate("/", { replace: true });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const {
@@ -57,8 +66,17 @@ const Register = () => {
       const result = await registerUser(data.email, data.password, data.username, data.fullName);
       
       if (result.success) {
-        toast.success("Account created successfully! Please login.");
-        navigate("/login");
+        // Check if user was automatically logged in (email confirmation disabled)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          toast.success("Account created successfully! Welcome!");
+          navigate("/", { replace: true });
+        } else {
+          // Email confirmation is enabled
+          toast.success("Account created! Please check your email to confirm.");
+          navigate("/login");
+        }
       } else {
         toast.error(result.error || "Registration failed");
       }
